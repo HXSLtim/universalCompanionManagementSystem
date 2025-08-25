@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +21,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-qmef=+&mtte9fcgr%ue#rw!9p&)qwk*l784^eeybjc@p-35@y5"
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY", "django-insecure-qmef=+&mtte9fcgr%ue#rw!9p&)qwk*l784^eeybjc@p-35@y5"
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "1") == "1"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS: list[str] = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(
+    ","
+)
+
+# CSRF设置
+CSRF_TRUSTED_ORIGINS = os.environ.get(
+    "CSRF_TRUSTED_ORIGINS", "http://localhost:8000"
+).split(",")
 
 
 # Application definition
@@ -37,7 +47,17 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "apps.identity",
+    "apps.common",
+    "rest_framework",
 ]
+
+# 根据环境变量决定是否启用Swagger
+if os.environ.get("SWAGGER_ENABLED", "1") == "1":
+    INSTALLED_APPS.append("drf_spectacular")
+
+# 添加自定义用户模型
+AUTH_USER_MODEL = "identity.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -74,12 +94,60 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": os.environ.get("DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.environ.get("DB_NAME", BASE_DIR / "db.sqlite3"),
+        "USER": os.environ.get("DB_USER", ""),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", ""),
+        "PORT": os.environ.get("DB_PORT", ""),
     }
 }
 
+# 如果提供了DATABASE_URL环境变量，则使用它
+if "DATABASE_URL" in os.environ:
+    import dj_database_url
 
+    DATABASES["default"] = dj_database_url.parse(os.environ["DATABASE_URL"])
+
+# 缓存配置
+CACHE_BACKEND = os.environ.get("CACHE_BACKEND", "default")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+
+# 根据环境变量配置Redis
+REDIS_URL = os.environ.get("REDIS_URL", "")
+if REDIS_URL and REDIS_URL != "none":
+    CACHES["default"] = {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+elif CACHE_BACKEND == "redis":
+    # 使用分段Redis配置
+    REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+    REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
+    REDIS_DB = os.environ.get("REDIS_DB", "0")
+    CACHES["default"] = {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+elif CACHE_BACKEND == "dummy":
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+    }
+elif CACHE_BACKEND == "none":
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+    }
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -115,8 +183,25 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-
+STATIC_ROOT = os.path.join(BASE_DIR, "public", "static")
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": (
+        "drf_spectacular.openapi.AutoSchema"
+        if os.environ.get("SWAGGER_ENABLED", "1") == "1"
+        else None
+    ),
+}
+
+# Swagger设置
+if os.environ.get("SWAGGER_ENABLED", "1") == "1":
+    SPECTACULAR_SETTINGS = {
+        "TITLE": "Universal Companion Management System API",
+        "DESCRIPTION": "Universal Companion Management System API documentation",
+        "VERSION": "1.0.0",
+        "SERVE_INCLUDE_SCHEMA": False,
+    }
