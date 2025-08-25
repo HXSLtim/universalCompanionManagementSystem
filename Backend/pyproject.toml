@@ -1,0 +1,55 @@
+[project]
+name = "Backend"
+version = "0.1.0"
+description = "Django REST API Service"
+dependencies = [
+    "django>=4.2.0",
+    "djangorestframework>=3.14.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "flake8>=6.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "pytest>=7.0.0",
+    "pytest-django>=4.5.0",
+    "mypy>=1.0.0",
+    "django-stubs[compatible-mypy]>=4.2.0",
+    "factory-boy>=3.2.0"
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py315']  # 更新为 Python 3.15
+extend-exclude = '''
+/(
+  migrations
+  | venv
+  | .venv
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+skip_glob = ["*/migrations/*"]
+
+[tool.mypy]
+python_version = "3.15"  # 更新为 Python 3.15
+check_untyped_defs = true
+ignore_missing_imports = true
+plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "myapi.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "myapi.settings"
+python_files = "tests.py test_*.py *_tests.py"
+testpaths = ["."]
+django_find_project = false
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
