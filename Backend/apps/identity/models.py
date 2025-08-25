@@ -16,17 +16,15 @@ class User(AbstractUser, BaseModel):
     phone = models.CharField(max_length=11, unique=True)
     avatar = models.URLField(blank=True)
 
-    roles = models.ManyToManyField(
-        Role,
-        through='UserRole',
-        blank=True
-    )
-    # 仅做快速 UI 判断，Casbin 仍是唯一权威
-    is_super_admin = models.BooleanField(default=False)
+    roles = models.ManyToManyField(Role, through="UserRole", blank=True)
+
+    # 复用 Django 内置字段
+    # is_superuser 默认存在，不覆盖即可
+    # is_staff 如需要后台登录，也保留
 
     class Meta:
-        db_table = 'rbac_user'
-        swappable = 'AUTH_USER_MODEL'
+        db_table = "rbac_user"
+        swappable = "AUTH_USER_MODEL"
 
 
 class UserRole(models.Model):
@@ -35,5 +33,5 @@ class UserRole(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'rbac_user_role'
-        unique_together = ('user', 'role')
+        db_table = "rbac_user_role"
+        unique_together = ("user", "role")
